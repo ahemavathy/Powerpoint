@@ -7,14 +7,14 @@ A REST API service for generating PowerPoint presentations from JSON content. Th
 ### 1. Run the Web Service
 
 ```bash
-# Navigate to the project directory
-cd c:\Users\hema\Projects\Powerpoint
+# Navigate to the WebAPI directory
+cd WebAPI
 
 # Run the web API (development mode)
-dotnet run --project PowerPointGenerator.WebAPI.csproj --launch-profile http
+dotnet run --project PowerPointGenerator.WebAPI.csproj
 
-# Or run directly with the web program
-dotnet run WebProgram.cs
+# Or from the root directory
+dotnet run --project WebAPI/PowerPointGenerator.WebAPI.csproj
 ```
 
 The API will start at:
@@ -50,32 +50,34 @@ Creates a PowerPoint presentation from JSON slide content.
   "fileName": "MyPresentation_abc123.pptx",
   "filePath": "/path/to/file.pptx",
   "presentationName": "MyPresentation",
-  "createdAt": "2025-07-22T12:00:00Z",
+  "createdAt": "2025-07-29T12:00:00Z",
   "fileSize": 45678,
   "slideCount": 3,
   "downloadUrl": "/api/presentation/download/MyPresentation_abc123.pptx"
 }
 ```
 
-### Download Presentation
-**GET** `/api/presentation/download/{fileName}`
+### Image Upload
+**POST** `/api/presentation/upload-image`
 
-Downloads a generated presentation file.
+Uploads an image file for use in presentations.
 
-### List Presentations
-**GET** `/api/presentation/list`
+**POST** `/api/presentation/upload-images`
 
-Gets a list of all generated presentations.
+Uploads multiple image files.
+
+### File Management
+- **GET** `/api/presentation/download/{fileName}` - Downloads a generated presentation file
+- **GET** `/api/presentation/list` - Gets a list of all generated presentations
+- **DELETE** `/api/presentation/delete/{fileName}` - Deletes a generated presentation file
+- **GET** `/api/presentation/images` - Gets a list of uploaded images
+- **GET** `/api/presentation/image/{fileName}` - Downloads/views an uploaded image
+- **DELETE** `/api/presentation/image/{fileName}` - Deletes an uploaded image
 
 ### Health Check
 **GET** `/api/presentation/health`
 
 Checks if the API service is running.
-
-### Delete Presentation
-**DELETE** `/api/presentation/delete/{fileName}`
-
-Deletes a generated presentation file.
 
 ## 🔧 Usage Examples
 
@@ -113,6 +115,20 @@ const createPresentation = async () => {
   if (result.success) {
     window.open(`http://localhost:5000${result.downloadUrl}`);
   }
+};
+
+// Upload image
+const uploadImage = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch('http://localhost:5000/api/presentation/upload-image', {
+    method: 'POST',
+    body: formData
+  });
+
+  const result = await response.json();
+  console.log('Image uploaded:', result);
 };
 ```
 
@@ -158,38 +174,69 @@ def create_presentation():
     else:
         print(f"Error: {response.text}")
 
+def upload_image(file_path):
+    with open(file_path, 'rb') as f:
+        files = {'file': f}
+        response = requests.post(
+            'http://localhost:5000/api/presentation/upload-image',
+            files=files
+        )
+    
+    if response.ok:
+        result = response.json()
+        print(f"Image uploaded: {result['fileName']}")
+    else:
+        print(f"Upload error: {response.text}")
+
+# Usage
 create_presentation()
+upload_image('path/to/your/image.png')
 ```
 
 ### C# (.NET)
 ```csharp
-using PowerPointGenerator.Client;
+using System.Text;
+using System.Text.Json;
 
-// Using the provided client
-var client = new PowerPointApiClient("http://localhost:5000");
-
-var jsonContent = @"{
-  ""slides"": [
-    {
-      ""title"": ""C# Generated Slide"",
-      ""description"": ""This was created from a C# application"",
-      ""suggested_image"": ""csharp_logo.png""
-    }
-  ]
-}";
-
-var response = await client.CreatePresentationAsync(
-    jsonContent,
-    "CSharp_Presentation",
-    "Generated from C#",
-    "C# Developer"
-);
-
-if (response.Success)
+public class PowerPointApiClient
 {
-    var fileData = await client.DownloadPresentationAsync(response.FileName);
-    await File.WriteAllBytesAsync($"Downloaded_{response.FileName}", fileData);
+    private readonly HttpClient _httpClient;
+    private readonly string _baseUrl;
+
+    public PowerPointApiClient(string baseUrl = "http://localhost:5000")
+    {
+        _baseUrl = baseUrl;
+        _httpClient = new HttpClient();
+    }
+
+    public async Task<string> CreatePresentationAsync(string jsonContent, string presentationName)
+    {
+        var payload = new
+        {
+            jsonContent = jsonContent,
+            presentationName = presentationName,
+            presentationTitle = presentationName,
+            author = "API Client"
+        };
+
+        var json = JsonSerializer.Serialize(payload);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync($"{_baseUrl}/api/presentation/create-from-json", content);
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    public async Task<byte[]> DownloadPresentationAsync(string fileName)
+    {
+        var response = await _httpClient.GetAsync($"{_baseUrl}/api/presentation/download/{fileName}");
+        return await response.Content.ReadAsByteArrayAsync();
+    }
 }
+
+// Usage
+var client = new PowerPointApiClient();
+var jsonContent = @"{""slides"": [{""title"": ""C# Generated Slide"", ""description"": ""Created from C#"", ""suggested_image"": ""logo.png""}]}";
+var result = await client.CreatePresentationAsync(jsonContent, "CSharp_Presentation");
 ```
 
 ### cURL (Command Line)
@@ -204,6 +251,10 @@ curl -X POST "http://localhost:5000/api/presentation/create-from-json" \
     "author": "Command Line User"
   }'
 
+# Upload image
+curl -X POST "http://localhost:5000/api/presentation/upload-image" \
+  -F "file=@path/to/your/image.png"
+
 # Download presentation (replace FILENAME with actual filename from response)
 curl -O "http://localhost:5000/api/presentation/download/FILENAME.pptx"
 
@@ -217,11 +268,11 @@ curl "http://localhost:5000/api/presentation/health"
 ## 🔒 Configuration
 
 ### CORS
-The API is configured to accept requests from any origin in development mode. For production, configure CORS appropriately in `WebProgram.cs`.
+The API is configured to accept requests from any origin in development mode. For production, configure CORS appropriately in the startup configuration.
 
 ### File Storage
-- Generated presentations are stored in `GeneratedPresentations/` directory
-- Image files should be placed in `Images/` directory
+- Generated presentations are stored in `WebAPI/GeneratedPresentations/` directory
+- Uploaded images are stored in `WebAPI/Images/` directory
 - Both directories are created automatically when the service starts
 
 ### Logging
@@ -230,37 +281,47 @@ The API includes comprehensive logging for debugging and monitoring.
 ## 🏗️ Project Structure
 ```
 PowerPointGenerator/
-├── Controllers/
-│   └── PresentationController.cs    # Main API controller
-├── Client/
-│   └── PowerPointApiClient.cs       # C# client library
-├── Examples/
-│   └── ApiClientExample.cs         # Usage examples
-├── Models/
-│   └── WebApiModels.cs              # API request/response models
-├── Services/                        # Core presentation generation logic
-├── WebProgram.cs                    # Web API startup
-└── PowerPointGenerator.WebAPI.csproj
+├── WebAPI/
+│   ├── Controllers/
+│   │   └── PresentationController.cs    # Main API controller
+│   ├── Models/
+│   │   └── WebApiModels.cs              # API request/response models
+│   ├── Properties/
+│   │   └── launchSettings.json          # Launch configuration
+│   ├── Program.cs                       # Web API startup
+│   ├── PowerPointGenerator.WebAPI.csproj
+│   ├── GeneratedPresentations/          # Output directory
+│   └── Images/                          # Uploaded images directory
+├── Controllers/                         # Shared controllers
+├── Models/                             # Core domain models
+├── Services/                           # Core presentation generation logic
+├── Utilities/                          # Helper classes
+└── Client/                             # C# client library
 ```
 
 ## 🚀 Deployment
 
 ### Development
 ```bash
-dotnet run --project PowerPointGenerator.WebAPI.csproj
+# From WebAPI directory
+cd WebAPI
+dotnet run
+
+# Or from root directory
+dotnet run --project WebAPI/PowerPointGenerator.WebAPI.csproj
 ```
 
 ### Production
 ```bash
 # Build for production
-dotnet publish -c Release -o ./publish
+dotnet publish WebAPI/PowerPointGenerator.WebAPI.csproj -c Release -o ./publish
 
 # Run published version
 cd publish
 dotnet PowerPointGenerator.WebAPI.dll
 ```
 
-### Docker (Optional)
+### Docker
 ```dockerfile
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
@@ -270,18 +331,48 @@ ENTRYPOINT ["dotnet", "PowerPointGenerator.WebAPI.dll"]
 ```
 
 ## 🧪 Testing
+
+### Interactive Testing
 - **Swagger UI**: http://localhost:5000 (interactive API documentation)
 - **Health Check**: http://localhost:5000/api/presentation/health
-- **Unit Tests**: Can be added in a separate test project
+
+### Automated Testing
+- Unit tests can be added in a separate test project
+- Integration tests can use the provided client examples
+
+## 📋 Requirements
+
+- .NET 8.0 SDK
+- Windows (for System.Drawing.Common image processing)
+- Sufficient disk space for generated presentations and uploaded images
 
 ## 🔍 Troubleshooting
 
 **Common Issues:**
-1. **Port already in use**: Change the port in `launchSettings.json`
+1. **Port already in use**: Change the port in `WebAPI/Properties/launchSettings.json`
 2. **Permission errors**: Ensure the service has write permissions to the output directories
-3. **Image files not found**: Place images in the `Images/` directory or use absolute paths
+3. **Image files not found**: Upload images via the API or place them in the `WebAPI/Images/` directory
 4. **CORS errors**: Configure CORS settings for your specific domain in production
+5. **Build errors**: Ensure .NET 8.0 SDK is installed and all NuGet packages are restored
 
-**Logs**: Check console output for detailed error messages and request logging.
+**Debug Steps:**
+1. Check console output for detailed error messages
+2. Verify the health endpoint is responding
+3. Check file permissions on output directories
+4. Validate JSON format in requests
 
-Now you can call the PowerPoint Generator from any web application or system that supports HTTP requests! 🎉
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📄 License
+
+This project is available under the MIT License. See the LICENSE file for more details.
+
+---
+
+**Ready to generate PowerPoint presentations from any application! 🎉**

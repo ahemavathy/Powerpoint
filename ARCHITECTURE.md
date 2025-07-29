@@ -1,387 +1,319 @@
-# PowerPoint Generator Web Service - Architecture Design
+# PowerPoint Generator - Architecture & Technical Specifications
 
-## System Overview
+## Overview
 
-The PowerPoint Generator Web Service is a RESTful API built with ASP.NET Core that generates PowerPoint presentations from JSON content and manages image assets. The system follows a layered architecture pattern with clear separation of concerns.
+The PowerPoint Generator is a comprehensive C# .NET 8.0 solution that provides both a console application and RESTful Web API for generating PowerPoint presentations from JSON content. The system uses the DocumentFormat.OpenXml SDK and follows a layered architecture pattern with clear separation of concerns.
+
+## System Requirements
+
+### Runtime Environment
+- **.NET Version**: 8.0
+- **Operating System**: Windows (primary), Linux/macOS (limited due to System.Drawing.Common)
+- **Memory**: Minimum 512MB, Recommended 1GB+
+- **Storage**: 100MB application + storage for generated files
+- **CPU**: Multi-core recommended for concurrent processing
+
+### Dependencies
+
+**Console Application** (`PowerPointGenerator.csproj`):
+```xml
+<PackageReference Include="DocumentFormat.OpenXml" Version="3.3.0" />
+<PackageReference Include="System.Drawing.Common" Version="9.0.7" />
+<PackageReference Include="System.Text.Json" Version="8.0.0" />
+```
+
+**Web API** (`WebAPI/PowerPointGenerator.WebAPI.csproj`):
+```xml
+<PackageReference Include="DocumentFormat.OpenXml" Version="3.0.1" />
+<PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.0" />
+<PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+```
 
 ## High-Level Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Client Layer                             │
-├─────────────────────────────────────────────────────────────────┤
-│  Web Browsers  │  Mobile Apps  │  Desktop Apps  │  Other APIs   │
-│  (Swagger UI)  │              │               │               │
-└─────────────────┬───────────────┬───────────────┬───────────────┘
-                  │               │               │
-                  └───────────────┼───────────────┘
-                                  │
-                         HTTP/HTTPS REST API
-                                  │
-┌─────────────────────────────────┼─────────────────────────────────┐
-│                    API Gateway Layer                             │
-├─────────────────────────────────┼─────────────────────────────────┤
-│           ASP.NET Core Web API                                   │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │               Presentation Controller                       │ │
-│  │  • Image Upload/Management                                 │ │
-│  │  • Presentation Creation                                   │ │
-│  │  • File Download/Management                               │ │
-│  │  • Health Check                                           │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-│                              │                                   │
-├──────────────────────────────┼───────────────────────────────────┤
-│                    Middleware Layer                              │
-├──────────────────────────────┼───────────────────────────────────┤
-│  • CORS Handling            │  • Error Handling                 │
-│  • Authentication (future)   │  • Logging & Monitoring          │
-│  • Rate Limiting (future)    │  • Request/Response Validation   │
-└──────────────────────────────┼───────────────────────────────────┘
-                               │
-┌──────────────────────────────┼───────────────────────────────────┐
-│                    Business Logic Layer                          │
-├──────────────────────────────┼───────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │                    Services                                 │ │
-│  │  ┌─────────────────────┬─────────────────────────────────┐  │ │
-│  │  │ PowerPointGenerator │      JsonSlideParser           │  │ │
-│  │  │ Service             │      Service                    │  │ │
-│  │  │                     │                                 │  │ │
-│  │  │ • Presentation      │ • JSON Content Parsing         │  │ │
-│  │  │   Creation          │ • Slide Content Extraction     │  │ │
-│  │  │ • OpenXML           │ • Image Reference Resolution   │  │ │
-│  │  │   Manipulation      │ • Data Validation              │  │ │
-│  │  └─────────────────────┴─────────────────────────────────┘  │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-│                              │                                   │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │                   Utilities                                 │ │
-│  │  ┌─────────────────┬─────────────────┬─────────────────────┐ │ │
-│  │  │   SlideHelper   │   ImageHelper   │    ThemeHelper      │ │ │
-│  │  │                 │                 │                     │ │ │
-│  │  │ • Slide Layout  │ • Image         │ • Theme Creation    │ │ │
-│  │  │ • Text Formatting│   Processing   │ • Style Management  │ │ │
-│  │  │ • Shape Creation│ • Placeholder   │ • Color Schemes     │ │ │
-│  │  └─────────────────┴─────────────────┴─────────────────────┘ │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-└──────────────────────────────┼───────────────────────────────────┘
-                               │
-┌──────────────────────────────┼───────────────────────────────────┐
-│                     Data Access Layer                            │
-├──────────────────────────────┼───────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │                   File System                               │ │
-│  │  ┌─────────────────────┬─────────────────────────────────┐  │ │
-│  │  │  Generated          │         Images                  │  │ │
-│  │  │  Presentations/     │         Directory               │  │ │
-│  │  │                     │                                 │  │ │
-│  │  │ • .pptx files       │ • Uploaded images               │  │ │
-│  │  │ • Metadata          │ • Image processing              │  │ │
-│  │  │ • Cleanup           │ • Format validation             │  │ │
-│  │  └─────────────────────┴─────────────────────────────────┘  │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    Client Applications                      │
+├─────────────────────┬───────────────────────────────────────┤
+│    Console App      │           Web Applications            │
+│                     │    (Browser, Mobile, API Clients)    │
+└─────────────────────┴───────────────────────────────────────┘
+           │                              │
+           │                              │
+           ▼                              ▼
+┌─────────────────────┐         ┌─────────────────────────────┐
+│   Console Interface │         │      Web API Layer         │
+│                     │         │   (ASP.NET Core 8.0)       │
+│   Program.cs        │         │   Controllers + Swagger    │
+│   PowerPointAPI.cs  │         └─────────────────────────────┘
+└─────────────────────┘                        │
+           │                                   │
+           └───────────────┬───────────────────┘
+                          │
+                          ▼
+        ┌─────────────────────────────────────────────────────┐
+        │              Business Logic Layer                   │
+        │                                                     │
+        │  ┌─────────────────┐  ┌─────────────────────────┐   │
+        │  │    Services     │  │       Utilities         │   │
+        │  │                 │  │                         │   │
+        │  │ • PowerPoint    │  │ • SlideHelper           │   │
+        │  │   Generator     │  │ • ImageHelper           │   │
+        │  │ • JSON Parser   │  │ • ThemeHelper           │   │
+        │  │ • Slide Content │  │                         │   │
+        │  │   Parser        │  │                         │   │
+        │  └─────────────────┘  └─────────────────────────┘   │
+        └─────────────────────────────────────────────────────┘
+                          │
+                          ▼
+        ┌─────────────────────────────────────────────────────┐
+        │               Data Access Layer                     │
+        │                                                     │
+        │  ┌─────────────────┐  ┌─────────────────────────┐   │
+        │  │  File System    │  │    OpenXML SDK          │   │
+        │  │                 │  │                         │   │
+        │  │ • Images/       │  │ • Document Creation     │   │
+        │  │ • Generated     │  │ • Slide Management      │   │
+        │  │   Presentations │  │ • Image Embedding       │   │
+        │  │ • JSON Input    │  │ • Theme Application     │   │
+        │  └─────────────────┘  └─────────────────────────┘   │
+        └─────────────────────────────────────────────────────┘
 ```
 
 ## Component Architecture
 
-### 1. API Layer Components
+### Core Components
 
-#### PresentationController
-- **Responsibility**: HTTP request handling and response formatting
-- **Key Methods**:
-  - `POST /api/presentation/create-from-json` - Create presentations
-  - `POST /api/presentation/upload-image` - Single image upload
-  - `POST /api/presentation/upload-images` - Multiple image upload
-  - `GET /api/presentation/images` - List uploaded images
-  - `GET /api/presentation/image/{fileName}` - Retrieve specific image
-  - `GET /api/presentation/list` - List generated presentations
-  - `GET /api/presentation/download/{fileName}` - Download presentation
-  - `DELETE /api/presentation/delete/{fileName}` - Delete presentation
-  - `DELETE /api/presentation/image/{fileName}` - Delete image
-  - `GET /api/presentation/health` - Health check
+#### 1. **Models Layer** (`Models/`)
+- **PresentationModels.cs**: Core domain models (PresentationContent, SlideContent, ImageContent)
+- **JsonSlideModels.cs**: JSON-specific input models (JsonSlideContent, JsonSlide)
+- **WebApiModels.cs**: API request/response models (CreatePresentationRequest, PresentationResponse)
 
-### 2. Service Layer Components
+#### 2. **Services Layer** (`Services/`)
+- **PowerPointGeneratorService.cs**: Core presentation generation logic using OpenXML
+- **JsonSlideParser.cs**: Parses JSON content into domain models
+- **SlideContentParser.cs**: Legacy text-based content parsing
 
-#### PowerPointGeneratorService
-```csharp
-Responsibilities:
-├── Presentation Creation
-│   ├── OpenXML document initialization
-│   ├── Slide generation and layout
-│   └── Content population
-├── Resource Management
-│   ├── Image embedding
-│   ├── Theme application
-│   └── File cleanup
-└── Error Handling
-    ├── OpenXML exceptions
-    ├── File I/O errors
-    └── Content validation
-```
+#### 3. **Utilities Layer** (`Utilities/`)
+- **SlideHelper.cs**: Slide creation and formatting utilities
+- **ImageHelper.cs**: Image processing with aspect ratio preservation
+- **ThemeHelper.cs**: PowerPoint theme and styling management
 
-#### JsonSlideParser
-```csharp
-Responsibilities:
-├── JSON Parsing
-│   ├── Content validation
-│   ├── Schema verification
-│   └── Error handling
-├── Data Transformation
-│   ├── JSON to domain models
-│   ├── Image path resolution
-│   └── Content sanitization
-└── Configuration
-    ├── Default values
-    ├── Presentation metadata
-    └── Slide ordering
-```
-
-### 3. Utility Layer Components
-
-#### SlideHelper
-- Slide layout management
-- Text formatting and positioning
-- Shape and placeholder creation
-- OpenXML element generation
-
-#### ImageHelper
-- Image processing and validation
-- Placeholder image generation
-- Format conversion support
-- Dimension extraction
-
-#### ThemeHelper
-- Theme creation and management
-- Color scheme application
-- Font and style configuration
-- Corporate branding support
-
-### 4. Model Layer
-
-#### Domain Models
-```csharp
-PresentationContent
-├── Metadata (title, author, created date)
-├── Slides[] (collection of slide content)
-└── Configuration (theme, layout preferences)
-
-SlideContent
-├── Title (slide heading)
-├── Description (main content)
-├── ImagePath (reference to image file)
-└── Layout (positioning and formatting)
-
-ImageContent
-├── FilePath (local file system path)
-├── PlaceholderText (fallback content)
-└── Dimensions (width, height)
-```
-
-#### API Models
-```csharp
-CreatePresentationRequest
-├── JsonContent (slide data as JSON string)
-├── PresentationName (optional custom name)
-├── PresentationTitle (display title)
-└── Author (presentation author)
-
-ImageUploadResponse
-├── Success (operation result)
-├── FileName (uploaded file name)
-├── FileSize (file size in bytes)
-├── ImageUrl (access URL)
-└── ErrorMessage (failure details)
-```
+#### 4. **API Layer** (`Controllers/` & `WebAPI/`)
+- **PresentationController.cs**: REST API endpoints
+- **Program.cs**: Web API configuration and startup
+- **PowerPointAPI.cs**: Simplified API wrapper for console usage
 
 ## Data Flow Architecture
 
-### 1. Presentation Creation Flow
+### Console Application Flow
 ```
-Client Request → Controller → JSON Parser → Domain Models → 
-PowerPoint Generator → OpenXML Processing → File System → Response
-```
-
-### 2. Image Upload Flow
-```
-Client Upload → Controller → Validation → File System Storage → 
-Metadata Extraction → Response Generation
+JSON File → JsonSlideParser → PresentationContent → PowerPointGeneratorService → .pptx File
 ```
 
-### 3. File Management Flow
+### Web API Flow
 ```
-Client Request → Controller → File System Operations → 
-Response/Stream Generation
+HTTP Request → Controller → JsonSlideParser → PowerPointGeneratorService → File Storage → HTTP Response
 ```
+
+## Technical Specifications
+
+### API Endpoints
+
+**Base URL**: `http://localhost:5000/api/presentation`
+
+#### Core Endpoints
+- `POST /create-from-json` - Create presentation from JSON
+- `GET /download/{fileName}` - Download generated presentation
+- `GET /list` - List all presentations
+- `DELETE /delete/{fileName}` - Delete presentation
+
+#### Image Management
+- `POST /upload-image` - Upload single image
+- `POST /upload-images` - Upload multiple images
+- `GET /images` - List uploaded images
+- `GET /image/{fileName}` - Get image file
+- `DELETE /image/{fileName}` - Delete image
+
+#### Utility
+- `GET /health` - Health check
+
+### Data Models
+
+#### JSON Input Format
+```json
+{
+  "slides": [
+    {
+      "title": "Slide Title",
+      "description": "Slide description content",
+      "suggested_image": "image-filename.png"
+    }
+  ]
+}
+```
+
+#### API Request Format
+```json
+{
+  "jsonContent": "{\"slides\": [...]}",
+  "presentationName": "MyPresentation",
+  "presentationTitle": "My Presentation Title",
+  "author": "Author Name"
+}
+```
+
+### File Management
+
+#### Directory Structure
+```
+Application Root/
+├── Images/                          # Console app images
+├── slides_content.json              # Default input file
+├── WebAPI/
+│   ├── Images/                      # API uploaded images
+│   ├── GeneratedPresentations/      # API generated files
+│   └── Program.cs
+└── Generated files (console output)
+```
+
+#### File Validation
+- **Supported Image Formats**: JPG, JPEG, PNG, GIF, BMP, WEBP
+- **Maximum File Size**: 10MB per image
+- **Presentation Format**: Office Open XML (.pptx)
+
+### Performance Specifications
+
+#### Response Time Targets
+- **Health Check**: < 50ms
+- **Image Upload**: < 2 seconds (10MB file)
+- **Presentation Creation**: < 5 seconds (10 slides)
+- **Console Generation**: < 3 seconds (typical)
+
+#### Resource Limits
+- **Slides per Presentation**: 100 maximum
+- **Images per Slide**: 1 (current implementation)
+- **Processing Timeout**: 30 seconds
+- **Memory Usage**: 50-200MB per operation
+
+### Image Processing Features
+
+#### Aspect Ratio Preservation
+The system maintains original image proportions using advanced scaling algorithms:
+
+```csharp
+// From ImageHelper.cs
+public static (long width, long height) CalculateFitDimensions(
+    int originalWidth, int originalHeight, 
+    long maxWidth, long maxHeight)
+```
+
+#### Layout Types
+- **Single Large Image**: Maximum space utilization below text
+- **Image Grid**: 2x2 grid for multiple images
+- **Image with Caption**: Detailed image descriptions
+- **Two-Image Comparison**: Side-by-side layout
 
 ## Security Architecture
 
-### Current Implementation
-- **CORS**: Enabled for cross-origin requests
-- **Input Validation**: File type and size restrictions
+### Current Security Measures
+- **Input Validation**: File type and size validation
+- **Path Security**: Prevention of directory traversal
+- **CORS Policy**: Configurable cross-origin requests
 - **Error Handling**: Sanitized error responses
-- **File Access**: Restricted to designated directories
 
-### Future Security Enhancements
-```
-Authentication Layer
-├── JWT Token Validation
-├── API Key Management
-└── Role-Based Access Control
-
-Authorization Layer
-├── Resource-Level Permissions
-├── Rate Limiting
-└── Audit Logging
-
-Data Protection
-├── Input Sanitization
-├── SQL Injection Prevention
-└── File Upload Security
-```
-
-## Scalability Architecture
-
-### Current Design
-- **Stateless**: No server-side session management
-- **File-Based**: Simple file system storage
-- **Single Instance**: Designed for single server deployment
-
-### Scalability Considerations
-```
-Horizontal Scaling
-├── Load Balancer Integration
-├── Shared File Storage (NFS/S3)
-└── Database Migration
-
-Performance Optimization
-├── Caching Layer (Redis)
-├── Background Processing (Queues)
-└── CDN Integration
-
-Monitoring & Observability
-├── Application Performance Monitoring
-├── Health Check Endpoints
-└── Structured Logging
+### Error Handling
+```csharp
+HTTP Status Codes:
+├── 200 OK - Successful operation
+├── 400 Bad Request - Invalid input
+├── 404 Not Found - Resource not found
+├── 413 Payload Too Large - File size exceeded
+└── 500 Internal Server Error - System error
 ```
 
 ## Deployment Architecture
 
-### Current Deployment
-```
-Single Server Deployment
-├── ASP.NET Core Application
-├── Local File System
-└── In-Process Request Handling
-```
+### Console Application
+```bash
+# Run directly
+dotnet run --project PowerPointGenerator.csproj
 
-### Production Deployment Options
-
-#### Option 1: Container Deployment
-```
-Docker Container
-├── ASP.NET Core Runtime
-├── Application Code
-├── Volume Mounts
-│   ├── /app/Images (persistent storage)
-│   └── /app/GeneratedPresentations
-└── Health Check Configuration
+# With arguments
+dotnet run --project PowerPointGenerator.csproj slides.json "My Presentation"
 ```
 
-#### Option 2: Cloud Deployment
-```
-Azure App Service
-├── Application Hosting
-├── Azure Storage Account
-│   ├── Blob Storage (images)
-│   └── File Share (presentations)
-├── Application Insights (monitoring)
-└── Azure CDN (static content)
-```
+### Web API
+```bash
+# Development
+dotnet run --project WebAPI/PowerPointGenerator.WebAPI.csproj
 
-#### Option 3: Microservices Architecture
-```
-API Gateway
-├── Presentation Service
-├── Image Management Service
-├── File Storage Service
-└── Notification Service
+# Production
+dotnet publish WebAPI/ -c Release -o ./publish
+cd publish && dotnet PowerPointGenerator.WebAPI.dll
 ```
 
-## Technology Stack
-
-### Core Technologies
-- **Framework**: ASP.NET Core 8.0
-- **Language**: C# 12
-- **Documentation**: OpenAPI/Swagger
-- **File Processing**: DocumentFormat.OpenXml
-- **Image Processing**: System.Drawing.Common
-
-### Dependencies
-```
-Production Dependencies
-├── DocumentFormat.OpenXml (PowerPoint generation)
-├── System.Drawing.Common (image processing)
-├── Microsoft.AspNetCore.OpenApi (API documentation)
-└── Swashbuckle.AspNetCore (Swagger UI)
-
-Development Dependencies
-├── Microsoft.Extensions.Logging (logging)
-├── System.Text.Json (JSON processing)
-└── Microsoft.AspNetCore.Mvc (MVC framework)
+### Docker Deployment
+```dockerfile
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY ./publish .
+EXPOSE 80
+VOLUME ["/app/Images", "/app/GeneratedPresentations"]
+ENTRYPOINT ["dotnet", "PowerPointGenerator.WebAPI.dll"]
 ```
 
-## Performance Characteristics
+## Configuration
 
-### Current Performance Profile
-- **Memory Usage**: ~50-100MB base + 10-20MB per concurrent request
-- **CPU Usage**: High during PowerPoint generation, low at rest
-- **Disk I/O**: Moderate (file uploads/downloads)
-- **Network**: Dependent on file sizes and concurrent users
+### Application Settings
+```json
+{
+  "PowerPointGenerator": {
+    "MaxFileSize": 10485760,
+    "AllowedImageTypes": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"],
+    "DefaultTheme": "Office",
+    "ProcessingTimeout": 30000
+  }
+}
+```
 
-### Performance Optimization Strategies
-1. **Async Processing**: All I/O operations are asynchronous
-2. **Memory Management**: Using statements for proper disposal
-3. **File Streaming**: Direct file streaming for downloads
-4. **Error Caching**: Quick failure for invalid requests
+### Environment Variables
+```bash
+ASPNETCORE_ENVIRONMENT=Development|Production
+ASPNETCORE_URLS=http://localhost:5000
+POWERPOINT_STORAGE_PATH=/app/storage
+```
 
-## Monitoring and Observability
+## Future Enhancements
+
+### Planned Features
+- **Authentication**: JWT-based API security
+- **Multi-tenancy**: User isolation and resource management
+- **Advanced Layouts**: More slide templates and designs
+- **Real-time Processing**: WebSocket-based progress updates
+- **Cloud Storage**: Azure Blob Storage integration
+- **Batch Processing**: Multiple presentation generation
+- **AI Integration**: Content suggestions and optimization
+
+### Scalability Improvements
+- **Horizontal Scaling**: Load balancer support
+- **Caching**: Redis-based result caching
+- **Queue Processing**: Background job processing
+- **Microservices**: Service decomposition for enterprise scale
+
+## Monitoring and Maintenance
+
+### Logging
+- **Console App**: Standard output logging
+- **Web API**: ASP.NET Core structured logging
+- **Error Tracking**: Comprehensive exception handling
 
 ### Health Monitoring
-- **Health Check Endpoint**: `/api/presentation/health`
-- **Service Status**: Application health verification
-- **Dependency Checks**: File system access validation
+- **API Health Endpoint**: `/api/presentation/health`
+- **File System Monitoring**: Storage space and permissions
+- **Performance Metrics**: Response times and throughput
 
-### Logging Strategy
-```
-Log Levels
-├── Information (successful operations)
-├── Warning (non-critical issues)
-├── Error (operation failures)
-└── Critical (system failures)
+---
 
-Log Categories
-├── API Requests/Responses
-├── File Operations
-├── Business Logic Events
-└── System Performance
-```
-
-## Future Architecture Enhancements
-
-### Phase 1: Enhanced Features
-- Template system for presentation designs
-- Batch processing for multiple presentations
-- Webhook notifications for completion events
-
-### Phase 2: Enterprise Features
-- Multi-tenant architecture
-- Advanced authentication/authorization
-- API versioning and backward compatibility
-
-### Phase 3: AI Integration
-- Content suggestion engine
-- Image recommendation system
-- Layout optimization algorithms
-
-This architecture provides a solid foundation for the current PowerPoint Generator web service while allowing for future scalability and feature enhancements.
+This comprehensive architecture and technical specification document provides the complete technical foundation for both the console application and web API components of the PowerPoint Generator system.

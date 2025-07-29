@@ -1,283 +1,497 @@
-# PowerPoint Generator - System Architecture Diagram
+# PowerPoint Generator - System Architecture Diagrams
 
-## Component Relationship Diagram
+This document provides visual representations of the PowerPoint Generator system architecture using Mermaid diagrams.
+
+## System Overview Diagram
 
 ```mermaid
 graph TB
-    %% Client Layer
-    subgraph "Client Layer"
-        WEB[Web Browser<br/>Swagger UI]
-        MOBILE[Mobile Apps]
-        DESKTOP[Desktop Apps]
-        API_CLIENT[Other APIs<br/>Integrations]
+    subgraph "Client Applications"
+        CLI[Console Application]
+        WEB[Web Applications]
+        MOB[Mobile Apps]
+        API[API Clients]
     end
 
-    %% API Gateway
-    subgraph "ASP.NET Core Web API"
-        CONTROLLER[PresentationController<br/>• Image Management<br/>• Presentation Creation<br/>• File Operations<br/>• Health Checks]
-        
-        subgraph "Middleware"
-            CORS[CORS Handler]
-            AUTH[Authentication<br/>Future]
-            LOGGING[Logging & Monitoring]
-            ERROR[Error Handling]
-        end
-    end
-
-    %% Business Logic Layer
-    subgraph "Business Logic Layer"
-        subgraph "Services"
-            PPT_SERVICE[PowerPointGeneratorService<br/>• OpenXML Processing<br/>• Presentation Creation<br/>• Resource Management]
-            JSON_PARSER[JsonSlideParser<br/>• JSON Validation<br/>• Content Parsing<br/>• Data Transformation]
+    subgraph "PowerPoint Generator System"
+        subgraph "Console App"
+            PROG[Program.cs]
+            PPAPI[PowerPointAPI.cs]
         end
         
-        subgraph "Utilities"
-            SLIDE_HELPER[SlideHelper<br/>• Layout Management<br/>• Text Formatting<br/>• Shape Creation]
-            IMAGE_HELPER[ImageHelper<br/>• Image Processing<br/>• Placeholder Generation<br/>• Format Validation]
-            THEME_HELPER[ThemeHelper<br/>• Theme Creation<br/>• Style Management<br/>• Color Schemes]
+        subgraph "Web API Layer"
+            WEBAPI[ASP.NET Core 8.0]
+            CTRL[PresentationController]
+            SWAGGER[Swagger UI]
+            CORS[CORS Middleware]
+        end
+        
+        subgraph "Business Logic Layer"
+            subgraph "Services"
+                PPG[PowerPointGeneratorService]
+                JSON[JsonSlideParser]
+                SCP[SlideContentParser]
+            end
+            
+            subgraph "Utilities"
+                SH[SlideHelper]
+                IH[ImageHelper]
+                TH[ThemeHelper]
+            end
+        end
+        
+        subgraph "Models Layer"
+            PM[PresentationModels]
+            JSM[JsonSlideModels]
+            WAM[WebApiModels]
+        end
+        
+        subgraph "Data Access Layer"
+            FS[File System]
+            OXSDK[OpenXML SDK]
+        end
+        
+        subgraph "Storage"
+            IMG[Images/]
+            PPTX[Generated Presentations/]
+            JSON_FILES[JSON Input Files]
         end
     end
 
-    %% Data Layer
-    subgraph "Data Access Layer"
-        subgraph "File System"
-            IMAGES_DIR[Images Directory<br/>• Uploaded Images<br/>• Format Validation<br/>• Metadata Extraction]
-            PPT_DIR[Presentations Directory<br/>• Generated .pptx Files<br/>• File Metadata<br/>• Cleanup Management]
-        end
-    end
-
-    %% Model Layer
-    subgraph "Models"
-        DOMAIN_MODELS[Domain Models<br/>• PresentationContent<br/>• SlideContent<br/>• ImageContent]
-        API_MODELS[API Models<br/>• CreatePresentationRequest<br/>• ImageUploadResponse<br/>• PresentationResponse]
-        JSON_MODELS[JSON Models<br/>• JsonSlideContent<br/>• JsonSlide]
-    end
-
-    %% Connections
-    WEB --> CONTROLLER
-    MOBILE --> CONTROLLER
-    DESKTOP --> CONTROLLER
-    API_CLIENT --> CONTROLLER
-
-    CONTROLLER --> CORS
-    CONTROLLER --> AUTH
-    CONTROLLER --> LOGGING
-    CONTROLLER --> ERROR
-
-    CONTROLLER --> PPT_SERVICE
-    CONTROLLER --> JSON_PARSER
-
-    PPT_SERVICE --> SLIDE_HELPER
-    PPT_SERVICE --> IMAGE_HELPER
-    PPT_SERVICE --> THEME_HELPER
-
-    JSON_PARSER --> DOMAIN_MODELS
-    PPT_SERVICE --> DOMAIN_MODELS
-
-    CONTROLLER --> API_MODELS
-    API_MODELS --> JSON_MODELS
-
-    PPT_SERVICE --> PPT_DIR
-    CONTROLLER --> IMAGES_DIR
-    IMAGE_HELPER --> IMAGES_DIR
-
-    classDef clientStyle fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef apiStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef serviceStyle fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
-    classDef dataStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef modelStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px
-
-    class WEB,MOBILE,DESKTOP,API_CLIENT clientStyle
-    class CONTROLLER,CORS,AUTH,LOGGING,ERROR apiStyle
-    class PPT_SERVICE,JSON_PARSER,SLIDE_HELPER,IMAGE_HELPER,THEME_HELPER serviceStyle
-    class IMAGES_DIR,PPT_DIR dataStyle
-    class DOMAIN_MODELS,API_MODELS,JSON_MODELS modelStyle
+    CLI --> PROG
+    CLI --> PPAPI
+    WEB --> WEBAPI
+    MOB --> WEBAPI
+    API --> WEBAPI
+    
+    PROG --> JSON
+    PPAPI --> JSON
+    CTRL --> JSON
+    
+    JSON --> PPG
+    SCP --> PPG
+    PPG --> SH
+    PPG --> IH
+    PPG --> TH
+    
+    PPG --> OXSDK
+    PPG --> FS
+    
+    FS --> IMG
+    FS --> PPTX
+    FS --> JSON_FILES
+    
+    PM -.-> PPG
+    JSM -.-> JSON
+    WAM -.-> CTRL
 ```
 
-## Data Flow Diagrams
+## Detailed API Data Flow
 
-### 1. Presentation Creation Flow
 ```mermaid
 sequenceDiagram
     participant Client
     participant Controller
     participant JsonParser
-    participant PPTService
+    participant Generator
     participant FileSystem
+    participant OpenXML
 
-    Client->>Controller: POST /create-from-json
-    Controller->>JsonParser: Parse JSON content
-    JsonParser->>JsonParser: Validate & transform
-    JsonParser-->>Controller: PresentationContent
-    Controller->>PPTService: CreatePresentationAsync()
-    PPTService->>PPTService: Generate OpenXML
-    PPTService->>FileSystem: Save .pptx file
-    FileSystem-->>PPTService: File path
-    PPTService-->>Controller: Success response
-    Controller-->>Client: PresentationResponse
-```
+    Note over Client,OpenXML: Presentation Creation Flow
+    
+    Client->>Controller: POST /api/presentation/create-from-json
+    Controller->>Controller: Validate Request
+    Controller->>JsonParser: ParseFromString(jsonContent)
+    JsonParser->>JsonParser: Parse JSON Structure
+    JsonParser->>FileSystem: Check Image Files
+    JsonParser-->>Controller: PresentationContent Model
+    
+    Controller->>Generator: CreatePresentationAsync()
+    Generator->>Generator: Process Slides
+    Generator->>OpenXML: Create PowerPoint Document
+    Generator->>FileSystem: Read Image Files
+    Generator->>OpenXML: Embed Images with Aspect Ratio
+    Generator->>OpenXML: Apply Formatting & Themes
+    Generator->>FileSystem: Save .pptx File
+    Generator-->>Controller: File Path
+    
+    Controller->>Controller: Build Response
+    Controller-->>Client: PresentationResponse (with download URL)
 
-### 2. Image Upload Flow
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Controller
-    participant FileSystem
-    participant ImageHelper
-
-    Client->>Controller: POST /upload-image
-    Controller->>Controller: Validate file type & size
-    Controller->>FileSystem: Check if file exists
-    alt File exists
-        FileSystem-->>Controller: File info
-        Controller-->>Client: Skip upload response
-    else File doesn't exist
-        Controller->>FileSystem: Save image file
-        Controller->>ImageHelper: Extract dimensions
-        ImageHelper-->>Controller: Image metadata
-        Controller-->>Client: Upload success response
+    Note over Client,OpenXML: Image Upload Flow
+    
+    Client->>Controller: POST /api/presentation/upload-image
+    Controller->>Controller: Validate File Type & Size
+    Controller->>FileSystem: Check if File Exists
+    alt File Exists
+        Controller-->>Client: Skip Upload (File Exists)
+    else New File
+        Controller->>FileSystem: Save Image File
+        Controller-->>Client: Upload Success Response
     end
+
+    Note over Client,OpenXML: File Download Flow
+    
+    Client->>Controller: GET /api/presentation/download/{fileName}
+    Controller->>FileSystem: Read File
+    Controller-->>Client: Binary File Stream
 ```
 
-### 3. System Startup Flow
+## Console Application Flow
+
+```mermaid
+flowchart TD
+    START([Start Console App])
+    ARGS{Parse Command Line Args}
+    
+    ARGS -->|No Args| DEFAULT[Use slides_content.json]
+    ARGS -->|JSON File Only| FILENAME[Use JSON filename for output]
+    ARGS -->|JSON + Name| CUSTOM[Use custom presentation name]
+    
+    DEFAULT --> PARSE[JsonSlideParser.ParseFromFile]
+    FILENAME --> PARSE
+    CUSTOM --> PARSE
+    
+    PARSE --> VALIDATE{Validate JSON}
+    VALIDATE -->|Invalid| ERROR[Show Error & Exit]
+    VALIDATE -->|Valid| GENERATE[PowerPointGeneratorService.CreatePresentationAsync]
+    
+    GENERATE --> IMAGES{Check Images}
+    IMAGES -->|Missing| PLACEHOLDER[Create Placeholder Images]
+    IMAGES -->|Found| EMBED[Embed Actual Images]
+    
+    PLACEHOLDER --> BUILD[Build Presentation]
+    EMBED --> BUILD
+    
+    BUILD --> SAVE[Save .pptx File]
+    SAVE --> SUCCESS[Show Success Message]
+    SUCCESS --> END([End])
+    ERROR --> END
+```
+
+## Current File Structure
+
 ```mermaid
 graph LR
-    START[Application Start] --> CONFIG[Load Configuration]
-    CONFIG --> SERVICES[Register Services]
-    SERVICES --> MIDDLEWARE[Configure Middleware]
-    MIDDLEWARE --> ROUTES[Map Routes]
-    ROUTES --> DIRS[Create Directories]
-    DIRS --> SWAGGER[Configure Swagger]
-    SWAGGER --> LISTEN[Start Listening]
-    
-    subgraph "Directory Setup"
-        DIRS --> IMG_DIR[Images Directory]
-        DIRS --> PPT_DIR[Presentations Directory]
+    subgraph "Project Root"
+        subgraph "Console App Files"
+            PROG_CS[Program.cs]
+            PPAPI_CS[PowerPointAPI.cs]
+            PROJ[PowerPointGenerator.csproj]
+            JSON_SAMPLE[slides_content.json]
+        end
+        
+        subgraph "Shared Components"
+            MODELS[Models/]
+            SERVICES[Services/]
+            UTILITIES[Utilities/]
+            CONTROLLERS[Controllers/]
+            IMAGES[Images/]
+        end
+        
+        subgraph "WebAPI Project"
+            WEBAPI_DIR[WebAPI/]
+            WEBAPI_PROG[WebAPI/Program.cs]
+            WEBAPI_PROJ[WebAPI/PowerPointGenerator.WebAPI.csproj]
+            WEBAPI_IMGS[WebAPI/Images/]
+            WEBAPI_GEN[WebAPI/GeneratedPresentations/]
+        end
     end
 ```
 
 ## Deployment Architecture Options
 
 ### Option 1: Single Server Deployment
+
 ```mermaid
 graph TB
-    subgraph "Single Server"
-        subgraph "Application Server"
-            API[ASP.NET Core API]
-            FS[Local File System]
+    subgraph "Production Server"
+        subgraph "Application Runtime"
+            NET8[.NET 8.0 Runtime]
+            WEBAPP[PowerPoint Generator Web API]
+            CONSOLE[Console Application]
         end
         
-        subgraph "Storage"
-            IMG_STORE[Images Storage]
-            PPT_STORE[Presentations Storage]
+        subgraph "File Storage"
+            UPLOAD_IMGS[Uploaded Images]
+            GEN_PPTS[Generated Presentations]
+            LOGS[Application Logs]
+        end
+        
+        subgraph "Network"
+            HTTP[HTTP :5000]
+            HTTPS[HTTPS :7000]
         end
     end
     
-    CLIENT[Clients] --> API
-    API --> FS
-    FS --> IMG_STORE
-    FS --> PPT_STORE
+    subgraph "External Clients"
+        BROWSER[Web Browser]
+        MOBILE[Mobile App]
+        API_CLIENT[API Client]
+        CLI_USER[Console User]
+    end
+    
+    BROWSER --> HTTP
+    MOBILE --> HTTPS
+    API_CLIENT --> HTTP
+    CLI_USER --> CONSOLE
+    
+    HTTP --> WEBAPP
+    HTTPS --> WEBAPP
+    WEBAPP --> UPLOAD_IMGS
+    WEBAPP --> GEN_PPTS
+    CONSOLE --> GEN_PPTS
 ```
 
-### Option 2: Cloud Deployment (Azure)
+### Option 2: Containerized Deployment
+
 ```mermaid
 graph TB
-    subgraph "Azure Cloud"
+    subgraph "Container Platform (Docker/Kubernetes)"
+        subgraph "Web API Container"
+            API_CONTAINER[PowerPoint Generator API]
+            API_PORT[":80"]
+        end
+        
+        subgraph "Volumes"
+            VOLUME_IMGS[Images Volume]
+            VOLUME_PPTS[Presentations Volume]
+        end
+        
+        subgraph "Console Container"
+            CONSOLE_CONTAINER[Console App Container]
+        end
+    end
+    
+    subgraph "External Storage"
+        BLOB[Azure Blob Storage / AWS S3]
+        NFS[Network File System]
+    end
+    
+    subgraph "Load Balancer"
+        LB[Load Balancer]
+    end
+    
+    LB --> API_CONTAINER
+    API_CONTAINER --> VOLUME_IMGS
+    API_CONTAINER --> VOLUME_PPTS
+    CONSOLE_CONTAINER --> VOLUME_PPTS
+    
+    VOLUME_IMGS -.-> BLOB
+    VOLUME_PPTS -.-> NFS
+```
+
+### Option 3: Cloud Native Architecture
+
+```mermaid
+graph TB
+    subgraph "Azure/AWS Cloud"
         subgraph "Compute"
-            APP_SERVICE[Azure App Service]
+            APP_SERVICE[App Service / ECS]
+            FUNCTION[Azure Functions / Lambda]
         end
         
         subgraph "Storage"
-            BLOB[Azure Blob Storage<br/>Images]
-            FILES[Azure Files<br/>Presentations]
+            BLOB_STORAGE[Blob Storage / S3]
+            FILE_SHARE[File Share / EFS]
+        end
+        
+        subgraph "Networking"
+            CDN[CDN]
+            API_GATEWAY[API Gateway]
         end
         
         subgraph "Monitoring"
-            INSIGHTS[Application Insights]
-            LOGS[Azure Monitor]
-        end
-        
-        subgraph "Security"
-            KEYVAULT[Azure Key Vault]
-            AAD[Azure AD]
+            APP_INSIGHTS[Application Insights]
+            CLOUDWATCH[CloudWatch]
         end
     end
     
-    CLIENT[Clients] --> APP_SERVICE
-    APP_SERVICE --> BLOB
-    APP_SERVICE --> FILES
-    APP_SERVICE --> INSIGHTS
-    APP_SERVICE --> KEYVAULT
-```
-
-### Option 3: Containerized Deployment
-```mermaid
-graph TB
-    subgraph "Container Orchestration"
-        subgraph "Kubernetes/Docker"
-            POD1[API Pod 1]
-            POD2[API Pod 2]
-            POD3[API Pod 3]
-        end
-        
-        LB[Load Balancer]
-        
-        subgraph "Persistent Storage"
-            PVC[Persistent Volume Claims]
-            NFS[Network File System]
-        end
+    subgraph "Clients"
+        WEB_CLIENT[Web Clients]
+        MOBILE_CLIENT[Mobile Clients]
+        API_CLIENTS[API Clients]
     end
     
-    CLIENT[Clients] --> LB
-    LB --> POD1
-    LB --> POD2
-    LB --> POD3
+    WEB_CLIENT --> CDN
+    MOBILE_CLIENT --> API_GATEWAY
+    API_CLIENTS --> API_GATEWAY
     
-    POD1 --> PVC
-    POD2 --> PVC
-    POD3 --> PVC
-    PVC --> NFS
+    CDN --> APP_SERVICE
+    API_GATEWAY --> APP_SERVICE
+    
+    APP_SERVICE --> BLOB_STORAGE
+    APP_SERVICE --> FILE_SHARE
+    FUNCTION --> BLOB_STORAGE
+    
+    APP_SERVICE --> APP_INSIGHTS
+    APP_SERVICE --> CLOUDWATCH
 ```
 
 ## Security Architecture
 
 ### Current Security Model
-```mermaid
-graph LR
-    REQUEST[Client Request] --> CORS_CHECK[CORS Validation]
-    CORS_CHECK --> FILE_VAL[File Validation]
-    FILE_VAL --> SIZE_CHECK[Size Limits]
-    SIZE_CHECK --> TYPE_CHECK[Type Validation]
-    TYPE_CHECK --> PROCESS[Process Request]
-    PROCESS --> SANITIZE[Sanitize Response]
-    SANITIZE --> RESPONSE[Send Response]
-```
 
-### Future Security Enhancements
 ```mermaid
 graph TB
-    subgraph "Authentication Layer"
-        JWT[JWT Tokens]
-        API_KEY[API Keys]
-        OAUTH[OAuth 2.0]
+    subgraph "Client Layer"
+        CLIENT[Client Applications]
     end
     
-    subgraph "Authorization Layer"
-        RBAC[Role-Based Access]
-        PERMISSIONS[Resource Permissions]
+    subgraph "API Gateway Layer"
+        CORS[CORS Policy]
         RATE_LIMIT[Rate Limiting]
+        INPUT_VAL[Input Validation]
     end
     
-    subgraph "Data Protection"
-        ENCRYPT[Data Encryption]
-        SANITIZE[Input Sanitization]
-        AUDIT[Audit Logging]
+    subgraph "Application Layer"
+        AUTH[Authentication*]
+        AUTHZ[Authorization*]
+        FILE_VAL[File Validation]
+        ERROR_HAND[Error Handling]
     end
     
-    CLIENT[Client] --> JWT
-    JWT --> RBAC
-    RBAC --> ENCRYPT
-    ENCRYPT --> API_ENDPOINT[API Endpoints]
+    subgraph "Data Layer"
+        FILE_SYS[File System Access]
+        PATH_VAL[Path Validation]
+        SIZE_LIMIT[Size Limits]
+    end
+    
+    CLIENT --> CORS
+    CORS --> RATE_LIMIT
+    RATE_LIMIT --> INPUT_VAL
+    INPUT_VAL --> AUTH
+    AUTH --> AUTHZ
+    AUTHZ --> FILE_VAL
+    FILE_VAL --> ERROR_HAND
+    ERROR_HAND --> FILE_SYS
+    FILE_SYS --> PATH_VAL
+    PATH_VAL --> SIZE_LIMIT
+    
+    note1[*Future Enhancement]
+    AUTH -.-> note1
+    AUTHZ -.-> note1
 ```
 
-This comprehensive architecture documentation provides both high-level system design and detailed component relationships for your PowerPoint Generator web service.
+### Future Security Architecture
+
+```mermaid
+graph TB
+    subgraph "Identity Provider"
+        IDP[Azure AD / Auth0]
+        JWT[JWT Token Service]
+    end
+    
+    subgraph "API Gateway"
+        TOKEN_VAL[Token Validation]
+        RBAC[Role-Based Access Control]
+        API_KEY[API Key Management]
+    end
+    
+    subgraph "Application Security"
+        ENCRYPT[TLS 1.2+ Encryption]
+        AUDIT[Audit Logging]
+        SANITIZE[Input Sanitization]
+    end
+    
+    subgraph "Data Security"
+        ENCRYPT_REST[Encryption at Rest]
+        ACCESS_CTRL[File Access Control]
+        BACKUP[Secure Backup]
+    end
+    
+    IDP --> JWT
+    JWT --> TOKEN_VAL
+    TOKEN_VAL --> RBAC
+    RBAC --> API_KEY
+    API_KEY --> ENCRYPT
+    ENCRYPT --> AUDIT
+    AUDIT --> SANITIZE
+    SANITIZE --> ENCRYPT_REST
+    ENCRYPT_REST --> ACCESS_CTRL
+    ACCESS_CTRL --> BACKUP
+```
+
+## Technology Stack Diagram
+
+```mermaid
+graph TB
+    subgraph "Runtime Environment"
+        NET8[.NET 8.0]
+        ASPNET[ASP.NET Core 8.0]
+    end
+    
+    subgraph "Core Libraries"
+        OPENXML[DocumentFormat.OpenXml 3.3.0/3.0.1]
+        DRAWING[System.Drawing.Common 9.0.7/8.0.0]
+        JSON_LIB[System.Text.Json 8.0.0]
+    end
+    
+    subgraph "Web API Libraries"
+        SWAGGER[Swashbuckle.AspNetCore 6.4.0]
+        OPENAPI[Microsoft.AspNetCore.OpenApi 8.0.0]
+    end
+    
+    subgraph "Development Tools"
+        VSCODE[VS Code]
+        DOTNET_CLI[.NET CLI]
+        GIT[Git]
+    end
+    
+    subgraph "File Formats"
+        PPTX[PowerPoint .pptx]
+        JSON_FORMAT[JSON Input]
+        IMAGE_FORMATS[JPG/PNG/GIF/BMP/WEBP]
+    end
+    
+    NET8 --> ASPNET
+    ASPNET --> OPENXML
+    ASPNET --> DRAWING
+    ASPNET --> JSON_LIB
+    ASPNET --> SWAGGER
+    ASPNET --> OPENAPI
+    
+    OPENXML --> PPTX
+    JSON_LIB --> JSON_FORMAT
+    DRAWING --> IMAGE_FORMATS
+```
+
+## System Startup Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Runtime
+    participant WebAPI
+    participant FileSystem
+    participant Services
+
+    Note over User,Services: Web API Startup
+    
+    User->>Runtime: dotnet run WebAPI/PowerPointGenerator.WebAPI.csproj
+    Runtime->>WebAPI: Initialize Application
+    WebAPI->>WebAPI: Configure Services
+    WebAPI->>WebAPI: Configure Middleware Pipeline
+    WebAPI->>FileSystem: Create Required Directories
+    FileSystem-->>WebAPI: Directories Ready
+    WebAPI->>Services: Register Dependencies
+    Services-->>WebAPI: Services Registered
+    WebAPI->>WebAPI: Configure Swagger UI
+    WebAPI->>Runtime: Start HTTP Server
+    Runtime-->>User: API Ready (http://localhost:5000)
+
+    Note over User,Services: Console App Startup
+    
+    User->>Runtime: dotnet run --project PowerPointGenerator.csproj
+    Runtime->>Services: Initialize JsonSlideParser
+    Runtime->>Services: Initialize PowerPointGeneratorService
+    Services->>FileSystem: Check Image Directory
+    FileSystem-->>Services: Directory Status
+    Services->>Services: Process Input JSON
+    Services->>Services: Generate Presentation
+    Services->>FileSystem: Save Output File
+    FileSystem-->>Services: File Saved
+    Services-->>User: Success Message + File Location
+```
+
+This comprehensive set of diagrams provides visual documentation for all aspects of the PowerPoint Generator system architecture, from high-level system overview to detailed deployment scenarios and security models.
