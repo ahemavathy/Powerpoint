@@ -1,0 +1,32 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+bin/
+obj/
+*.user
+*.suo
+*.cache
+
+# Generated files
+GeneratedPresentations/
+*.pptx
+*.zip
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vs/
+.vscode/settings.json
+.idea/
+
+# Logs
+*.log
+
+# Packages
+packages/
+*.nupkg
+
+# Test results
+TestResults/

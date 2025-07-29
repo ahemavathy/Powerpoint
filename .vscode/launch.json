@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch PowerPoint Generator",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/Debug/net8.0/PowerPointGenerator.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "Build Project"
+        },
+        {
+            "name": "Attach to PowerPoint Generator",
+            "type": "coreclr",
+            "request": "attach"
+        }
+    ]
+}

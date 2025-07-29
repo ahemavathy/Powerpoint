@@ -1,0 +1,62 @@
+{
+	"version": "2.0.0",
+	"tasks": [        {
+            "label": "Build and Run PowerPoint Generator",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "run",
+                "--project",
+                "PowerPointGenerator.csproj"
+            ],
+            "group": "build",
+            "isBackground": false,
+            "problemMatcher": [
+                "$msCompile"
+            ]
+        },
+        {
+            "label": "Build Project",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "build",
+                "PowerPointGenerator.csproj"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "isBackground": false,
+            "problemMatcher": [
+                "$msCompile"
+            ]
+        },
+        {
+            "label": "Clean Project",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "clean",
+                "PowerPointGenerator.csproj"
+            ],
+            "group": "build",
+            "isBackground": false,
+            "problemMatcher": [
+                "$msCompile"
+            ]
+        },
+        {
+            "label": "Restore Packages",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "restore",
+                "PowerPointGenerator.csproj"
+            ],
+            "group": "build",
+            "isBackground": false,
+            "problemMatcher": []
+        }
+	]
+}
