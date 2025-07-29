@@ -365,7 +365,9 @@ Thumbs.db
 *.temp
 
 # Generated files
-GeneratedPresentations/
-Images/
+GeneratedPresentations/*
+!GeneratedPresentations/.gitkeep
+Images/*
+!Images/.gitkeep
 *.pptx
 *.zip

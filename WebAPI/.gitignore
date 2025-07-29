@@ -7,9 +7,11 @@ obj/
 *.suo
 *.cache
 
-# Generated files
-GeneratedPresentations/
-Images/
+# Generated files - keep directories but ignore contents
+GeneratedPresentations/*
+!GeneratedPresentations/.gitkeep
+Images/*
+!Images/.gitkeep
 *.pptx
 *.zip
 
