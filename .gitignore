@@ -348,14 +348,6 @@ FodyWeavers.xsd
 *.userosscache
 *.sln.docstates
 
-# Generated PowerPoint files (optional - uncomment if you don't want to track them)
-# *.pptx
-# GeneratedPresentations/
-
-# Generated images (optional - uncomment if you don't want to track them)
-# Images/
-# WebAPI/Images/
-
 # Logs
 *.log
 
@@ -371,3 +363,9 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Generated files
+GeneratedPresentations/
+Images/
+*.pptx
+*.zip
