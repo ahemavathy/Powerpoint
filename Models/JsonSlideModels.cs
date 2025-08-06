@@ -24,5 +24,8 @@ namespace PowerPointGenerator.Models
 
         [JsonPropertyName("suggested_image")]
         public string SuggestedImage { get; set; } = string.Empty;
+
+        [JsonPropertyName("layout")]
+        public string Layout { get; set; } = string.Empty;
     }
 }

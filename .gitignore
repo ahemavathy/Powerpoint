@@ -365,9 +365,11 @@ Thumbs.db
 *.temp
 
 # Generated files
-GeneratedPresentations/*
-!GeneratedPresentations/.gitkeep
+GeneratedPresentations/
 Images/*
 !Images/.gitkeep
 *.pptx
+# Allow template files
+!Templates/*.pptx
+!WebAPI/Templates/*.pptx
 *.zip

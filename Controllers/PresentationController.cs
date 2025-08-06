@@ -12,12 +12,14 @@ namespace PowerPointGenerator.Controllers
         private readonly ILogger<PresentationController> _logger;
         private readonly string _outputDirectory;
         private readonly string _imageDirectory;
+        private readonly string _templatesDirectory;
 
         public PresentationController(ILogger<PresentationController> logger)
         {
             _logger = logger;
             _outputDirectory = Path.Combine(Environment.CurrentDirectory, "GeneratedPresentations");
             _imageDirectory = Path.Combine(Environment.CurrentDirectory, "Images");
+            _templatesDirectory = Path.Combine(Environment.CurrentDirectory, "Templates");
             
             // Ensure directories exist
             if (!Directory.Exists(_outputDirectory))
@@ -28,6 +30,11 @@ namespace PowerPointGenerator.Controllers
             if (!Directory.Exists(_imageDirectory))
             {
                 Directory.CreateDirectory(_imageDirectory);
+            }
+
+            if (!Directory.Exists(_templatesDirectory))
+            {
+                Directory.CreateDirectory(_templatesDirectory);
             }
         }
 
@@ -101,6 +108,91 @@ namespace PowerPointGenerator.Controllers
             {
                 _logger.LogError(ex, "Error creating presentation");
                 return StatusCode(500, new { error = "Failed to create presentation", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Creates a PowerPoint presentation from a template and JSON content
+        /// </summary>
+        /// <param name="request">The presentation creation request with optional template name</param>
+        /// <returns>Information about the created presentation</returns>
+        [HttpPost("create-from-template")]
+        public async Task<ActionResult<PresentationResponse>> CreateFromTemplate([FromBody] CreatePresentationFromTemplateRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("Creating presentation from template");
+
+                // Validate request
+                if (request?.JsonContent == null)
+                {
+                    return BadRequest(new { error = "JSON content is required" });
+                }
+
+                // Determine template file to use
+                var templateName = string.IsNullOrWhiteSpace(request.TemplateName) 
+                    ? "test_template.pptx" 
+                    : request.TemplateName;
+
+                // Ensure template has .pptx extension
+                if (!templateName.EndsWith(".pptx", StringComparison.OrdinalIgnoreCase))
+                {
+                    templateName += ".pptx";
+                }
+
+                var templatePath = Path.Combine(_templatesDirectory, templateName);
+
+                // Check if template exists
+                if (!System.IO.File.Exists(templatePath))
+                {
+                    return BadRequest(new { error = $"Template file '{templateName}' not found in Templates folder. Available templates: {string.Join(", ", GetAvailableTemplates())}" });
+                }
+
+                // Generate unique filename
+                var finalPresentationName = string.IsNullOrWhiteSpace(request.PresentationName)
+                    ? $"Presentation_{DateTime.Now:yyyyMMdd_HHmmss}"
+                    : request.PresentationName;
+
+                var fileName = $"{finalPresentationName}_{Guid.NewGuid():N}.pptx";
+                var outputPath = Path.Combine(_outputDirectory, fileName);
+
+                // Parse JSON content
+                var presentationContent = JsonSlideParser.ParseFromString(
+                    request.JsonContent,
+                    request.PresentationTitle ?? finalPresentationName,
+                    request.Author ?? "API User",
+                    _imageDirectory
+                );
+
+                // Create the presentation from template
+                using var generator = new PowerPointGeneratorService();
+                await generator.CreatePresentationFromTemplateAsync(presentationContent, templatePath, outputPath);
+
+                // Return response with file information
+                var response = new PresentationResponse
+                {
+                    Success = true,
+                    FileName = fileName,
+                    FilePath = outputPath,
+                    PresentationName = finalPresentationName,
+                    CreatedAt = DateTime.UtcNow,
+                    FileSize = new FileInfo(outputPath).Length,
+                    SlideCount = presentationContent.Slides.Count,
+                    DownloadUrl = $"/api/presentation/download/{fileName}"
+                };
+
+                _logger.LogInformation("Successfully created presentation from template '{TemplateName}': {FileName}", templateName, fileName);
+                return Ok(response);
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "Invalid JSON format in request");
+                return BadRequest(new { error = "Invalid JSON format", details = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating presentation from template");
+                return StatusCode(500, new { error = "Failed to create presentation from template", details = ex.Message });
             }
         }
 
@@ -428,6 +520,25 @@ namespace PowerPointGenerator.Controllers
         }
 
         /// <summary>
+        /// Gets a list of available template files
+        /// </summary>
+        /// <returns>List of available template files</returns>
+        [HttpGet("templates")]
+        public ActionResult<IEnumerable<string>> ListTemplates()
+        {
+            try
+            {
+                var templates = GetAvailableTemplates();
+                return Ok(templates);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error listing templates");
+                return StatusCode(500, new { error = "Failed to list templates" });
+            }
+        }
+
+        /// <summary>
         /// Health check endpoint
         /// </summary>
         /// <returns>Service health status</returns>
@@ -476,6 +587,30 @@ namespace PowerPointGenerator.Controllers
             catch
             {
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// Gets a list of available template files from the Templates directory
+        /// </summary>
+        /// <returns>List of template file names</returns>
+        private List<string> GetAvailableTemplates()
+        {
+            try
+            {
+                if (!Directory.Exists(_templatesDirectory))
+                {
+                    return new List<string>();
+                }
+
+                return Directory.GetFiles(_templatesDirectory, "*.pptx")
+                    .Select(Path.GetFileName)
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .ToList()!;
+            }
+            catch
+            {
+                return new List<string>();
             }
         }
     }

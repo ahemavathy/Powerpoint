@@ -68,7 +68,7 @@ namespace PowerPointGenerator.Services
                 {
                     Title = jsonSlide.Title,
                     Description = jsonSlide.Description,
-                    LayoutType = SlideLayoutType.ImageFocused
+                    LayoutType = ParseLayoutType(jsonSlide.Layout)
                 };
 
                 // Parse image from suggested_image field
@@ -121,6 +121,29 @@ namespace PowerPointGenerator.Services
             }
 
             return string.Empty;
+        }
+
+        /// <summary>
+        /// Parses layout type from string
+        /// </summary>
+        /// <param name="layoutString">Layout string from JSON</param>
+        /// <returns>Corresponding SlideLayoutType</returns>
+        private static SlideLayoutType ParseLayoutType(string layoutString)
+        {
+            if (string.IsNullOrWhiteSpace(layoutString))
+                return SlideLayoutType.ImageFocused; // Default
+
+            return layoutString.ToLowerInvariant() switch
+            {
+                "title" => SlideLayoutType.Title,
+                "titleandcontent" or "title_and_content" or "title-and-content" => SlideLayoutType.TitleAndContent,
+                "imagefocused" or "image_focused" or "image-focused" => SlideLayoutType.ImageFocused,
+                "imagegrid" or "image_grid" or "image-grid" => SlideLayoutType.ImageGrid,
+                "singleimagewithcaption" or "single_image_with_caption" or "single-image-with-caption" => SlideLayoutType.SingleImageWithCaption,
+                "twoimagecomparison" or "two_image_comparison" or "two-image-comparison" => SlideLayoutType.TwoImageComparison,
+                "productshowcase" or "product_showcase" or "product-showcase" => SlideLayoutType.ProductShowcase,
+                _ => SlideLayoutType.ImageFocused // Default fallback
+            };
         }
     }
 }

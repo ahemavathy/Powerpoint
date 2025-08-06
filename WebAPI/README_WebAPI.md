@@ -1,6 +1,6 @@
 # PowerPoint Generator Web API
 
-A REST API service for generating PowerPoint presentations from JSON content. This service can be called from any web application, mobile app, or system that supports HTTP requests.
+A REST API service for generating PowerPoint presentations from JSON content using both programmatic generation and template-based approaches. This service can be called from any web application, mobile app, or system that supports HTTP requests.
 
 ## 🚀 Quick Start
 
@@ -28,10 +28,10 @@ Once running, visit http://localhost:5000 to see the Swagger documentation and t
 
 ## 📝 API Endpoints
 
-### Create Presentation
+### Create Presentation (Programmatic)
 **POST** `/api/presentation/create-from-json`
 
-Creates a PowerPoint presentation from JSON slide content.
+Creates a PowerPoint presentation from JSON slide content using programmatic generation.
 
 **Request Body:**
 ```json
@@ -42,6 +42,35 @@ Creates a PowerPoint presentation from JSON slide content.
   "author": "John Doe"
 }
 ```
+
+### Create Presentation from Template (NEW!)
+**POST** `/api/presentation/create-from-template`
+
+Creates a PowerPoint presentation using an existing template with placeholder replacement. This provides more control over the exact layout, fonts, colors, and design.
+
+**Request Body:**
+```json
+{
+  "jsonContent": "{\"slides\": [{\"title\": \"My Title\", \"description\": \"My description\", \"suggested_image\": \"image.png\"}]}",
+  "presentationName": "MyPresentation",
+  "presentationTitle": "My Presentation Title", 
+  "author": "John Doe",
+  "templateName": "my_template.pptx"
+}
+```
+
+**Template Features:**
+- Uses PowerPoint templates from the `Templates/` folder
+- Supports text placeholders: `{{TITLE}}`, `{{DESCRIPTION}}`, `{{SYNOPSIS}}`
+- Replaces images automatically with your content images
+- Maintains exact template formatting and design
+- Removes excess slides if template has more slides than content
+- Removes images from slides that don't have images in content
+- Preserves aspect ratios of replacement images
+
+**Available Templates:**
+- Get list of templates: **GET** `/api/presentation/templates`
+- Default template: `test_template.pptx` (used when no template specified)
 
 **Response:**
 ```json
@@ -83,7 +112,7 @@ Checks if the API service is running.
 
 ### JavaScript/TypeScript (Web Application)
 ```javascript
-// Create presentation
+// Create presentation (programmatic)
 const createPresentation = async () => {
   const jsonContent = {
     slides: [
@@ -115,6 +144,40 @@ const createPresentation = async () => {
   if (result.success) {
     window.open(`http://localhost:5000${result.downloadUrl}`);
   }
+};
+
+// Create presentation from template (NEW!)
+const createFromTemplate = async () => {
+  const jsonContent = {
+    slides: [
+      {
+        title: "Product Launch",
+        description: "Introducing our amazing new product",
+        suggested_image: "product.png"
+      },
+      {
+        title: "Key Features", 
+        description: "Advanced functionality that sets us apart"
+      }
+    ]
+  };
+
+  const response = await fetch('http://localhost:5000/api/presentation/create-from-template', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      jsonContent: JSON.stringify(jsonContent),
+      presentationName: 'Template_Presentation',
+      presentationTitle: 'Professional Template Presentation',
+      author: 'Marketing Team',
+      templateName: 'corporate_template.pptx' // optional, uses test_template.pptx if not specified
+    })
+  });
+
+  const result = await response.json();
+  console.log('Template presentation created:', result);
 };
 
 // Upload image
@@ -241,7 +304,7 @@ var result = await client.CreatePresentationAsync(jsonContent, "CSharp_Presentat
 
 ### cURL (Command Line)
 ```bash
-# Create presentation
+# Create presentation (programmatic)
 curl -X POST "http://localhost:5000/api/presentation/create-from-json" \
   -H "Content-Type: application/json" \
   -d '{
@@ -250,6 +313,20 @@ curl -X POST "http://localhost:5000/api/presentation/create-from-json" \
     "presentationTitle": "cURL Generated Presentation",
     "author": "Command Line User"
   }'
+
+# Create presentation from template (NEW!)
+curl -X POST "http://localhost:5000/api/presentation/create-from-template" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonContent": "{\"slides\": [{\"title\": \"Template Test\", \"description\": \"Created via template\", \"suggested_image\": \"logo.png\"}]}",
+    "presentationName": "Template_Test",
+    "presentationTitle": "Template Generated Presentation",
+    "author": "Template User",
+    "templateName": "test_template.pptx"
+  }'
+
+# List available templates
+curl "http://localhost:5000/api/presentation/templates"
 
 # Upload image
 curl -X POST "http://localhost:5000/api/presentation/upload-image" \
@@ -273,7 +350,8 @@ The API is configured to accept requests from any origin in development mode. Fo
 ### File Storage
 - Generated presentations are stored in `WebAPI/GeneratedPresentations/` directory
 - Uploaded images are stored in `WebAPI/Images/` directory
-- Both directories are created automatically when the service starts
+- PowerPoint templates are stored in `WebAPI/Templates/` directory
+- All directories are created automatically when the service starts
 
 ### Logging
 The API includes comprehensive logging for debugging and monitoring.
@@ -291,7 +369,9 @@ PowerPointGenerator/
 │   ├── Program.cs                       # Web API startup
 │   ├── PowerPointGenerator.WebAPI.csproj
 │   ├── GeneratedPresentations/          # Output directory
-│   └── Images/                          # Uploaded images directory
+│   ├── Images/                          # Uploaded images directory
+│   └── Templates/                       # PowerPoint template files (NEW!)
+│       └── test_template.pptx          # Default template
 ├── Controllers/                         # Shared controllers
 ├── Models/                             # Core domain models
 ├── Services/                           # Core presentation generation logic

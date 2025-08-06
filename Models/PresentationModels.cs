@@ -151,6 +151,11 @@ namespace PowerPointGenerator.Models
         /// <summary>
         /// Comparison layout with two images side by side
         /// </summary>
-        TwoImageComparison
+        TwoImageComparison,
+
+        /// <summary>
+        /// Product showcase layout with title/description on left and large image on right
+        /// </summary>
+        ProductShowcase
     }
 }

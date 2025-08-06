@@ -30,6 +30,38 @@ namespace PowerPointGenerator.Models
     }
 
     /// <summary>
+    /// Request model for creating a presentation from a template
+    /// </summary>
+    public class CreatePresentationFromTemplateRequest
+    {
+        /// <summary>
+        /// JSON content containing slide data
+        /// </summary>
+        [Required]
+        public string JsonContent { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Name for the presentation file (without extension)
+        /// </summary>
+        public string? PresentationName { get; set; }
+
+        /// <summary>
+        /// Title to display in the presentation
+        /// </summary>
+        public string? PresentationTitle { get; set; }
+
+        /// <summary>
+        /// Author of the presentation
+        /// </summary>
+        public string? Author { get; set; }
+
+        /// <summary>
+        /// Name of the template file in the Templates folder (defaults to test_template.pptx)
+        /// </summary>
+        public string? TemplateName { get; set; }
+    }
+
+    /// <summary>
     /// Response model for presentation creation
     /// </summary>
     public class PresentationResponse

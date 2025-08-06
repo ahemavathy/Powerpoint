@@ -75,16 +75,28 @@ The expected JSON format is:
     {
       "title": "Slide Title",
       "description": "Slide description text",
-      "suggested_image": "Use Image 1: image_filename.png"
+      "suggested_image": "Use Image 1: image_filename.png",
+      "layout": "imagefocused"
     },
     {
-      "title": "Another Slide",
-      "description": "Another description",
-      "suggested_image": "image2.jpg"
+      "title": "Product Showcase",
+      "description": "Side-by-side layout with title/description on left and image on right",
+      "suggested_image": "product.jpg",
+      "layout": "productshowcase"
     }
   ]
 }
 ```
+
+### Supported Layout Types
+
+- **`imagefocused`** (default) - Large centered image below title and description
+- **`productshowcase`** - Side-by-side layout with text on left (40%) and image on right (60%)
+- **`imagegrid`** - Multiple images arranged in a grid
+- **`twoimagecomparison`** - Two images side by side for comparison
+- **`singleimagewithcaption`** - Single image with detailed caption below
+- **`titleandcontent`** - Standard title and content layout
+- **`title`** - Title-only slide
 
 ### Supported Image Formats
 
@@ -127,23 +139,25 @@ PowerPointGenerator/
 
 ## Layout Features
 
-- **Responsive Layouts**: Automatically chooses optimal layout based on content
+- **Responsive Layouts**: Automatically chooses optimal layout based on content and specified layout type
 - **Aspect Ratio Preservation**: Images maintain their original proportions
-- **Title at Top**: Clean title formatting without bullets
-- **Description Below Title**: Properly formatted description text
-- **Images Below Text**: Centered image placement with proper sizing
-- **Large Image Display**: Images are scaled to use maximum available space
+- **Multiple Layout Types**: Choose from 7 different slide layouts
+  - **Standard Layouts**: Title at top, description below, images below text
+  - **ProductShowcase**: Side-by-side layout with text on left (40%) and large image on right (60%)
+- **Smart Text Formatting**: Clean title formatting, bullet point conversion for product descriptions
+- **Large Image Display**: Images are scaled to use maximum available space within their layout area
 
 ## Image Handling
 
 - **Aspect Ratio Preservation**: Images are scaled while maintaining their original proportions
-- **Placeholder Creation**: Automatically creates colored placeholder images if originals are missing
 - **Centered Positioning**: Images are centered within their allocated space
 - **Multiple Layout Support**: 
-  - Single large image
-  - Image grid (2x2 for multiple images)
-  - Image with detailed captions
-  - Two-image comparison
+  - **Single large image** - Centered below content
+  - **Product showcase** - Large image on right side with text on left
+  - **Image grid** - 2x2 grid for multiple images
+  - **Image with captions** - Detailed image descriptions
+  - **Two-image comparison** - Side-by-side image comparison
+  - **Image focused** - Minimal text with large image emphasis
 
 ## API Reference
 

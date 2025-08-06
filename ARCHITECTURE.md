@@ -91,8 +91,8 @@ The PowerPoint Generator is a comprehensive C# .NET 8.0 solution that provides b
 - **WebApiModels.cs**: API request/response models (CreatePresentationRequest, PresentationResponse)
 
 #### 2. **Services Layer** (`Services/`)
-- **PowerPointGeneratorService.cs**: Core presentation generation logic using OpenXML
-- **JsonSlideParser.cs**: Parses JSON content into domain models
+- **PowerPointGeneratorService.cs**: Core presentation generation logic using OpenXML, including template-based generation with placeholder replacement and content removal
+- **JsonSlideParser.cs**: Parses JSON content into domain models with layout type support
 - **SlideContentParser.cs**: Legacy text-based content parsing
 
 #### 3. **Utilities Layer** (`Utilities/`)
@@ -112,9 +112,23 @@ The PowerPoint Generator is a comprehensive C# .NET 8.0 solution that provides b
 JSON File → JsonSlideParser → PresentationContent → PowerPointGeneratorService → .pptx File
 ```
 
+### Template-Based Generation Flow
+```
+Template.pptx + JSON Content → PowerPointGeneratorService → Modified Template → .pptx File
+```
+
 ### Web API Flow
 ```
 HTTP Request → Controller → JsonSlideParser → PowerPointGeneratorService → File Storage → HTTP Response
+```
+
+### Template Processing Flow
+```
+1. Copy template to output location
+2. Replace text placeholders ({title}, {description}) with JSON content
+3. Replace image placeholders with uploaded images
+4. Remove excess slides if JSON has fewer slides than template
+5. Remove image parts from slides if JSON content has no image
 ```
 
 ## Technical Specifications
@@ -124,7 +138,8 @@ HTTP Request → Controller → JsonSlideParser → PowerPointGeneratorService �
 **Base URL**: `http://localhost:5000/api/presentation`
 
 #### Core Endpoints
-- `POST /create-from-json` - Create presentation from JSON
+- `POST /create-from-json` - Create presentation from JSON content
+- `POST /create-from-template` - Create presentation from PowerPoint template with placeholder replacement
 - `GET /download/{fileName}` - Download generated presentation
 - `GET /list` - List all presentations
 - `DELETE /delete/{fileName}` - Delete presentation
@@ -135,6 +150,12 @@ HTTP Request → Controller → JsonSlideParser → PowerPointGeneratorService �
 - `GET /images` - List uploaded images
 - `GET /image/{fileName}` - Get image file
 - `DELETE /image/{fileName}` - Delete image
+
+#### Template Management
+- `POST /upload-template` - Upload PowerPoint template file (.pptx)
+- `GET /templates` - List uploaded templates
+- `GET /template/{fileName}` - Get template file
+- `DELETE /template/{fileName}` - Delete template
 
 #### Utility
 - `GET /health` - Health check
@@ -148,7 +169,8 @@ HTTP Request → Controller → JsonSlideParser → PowerPointGeneratorService �
     {
       "title": "Slide Title",
       "description": "Slide description content",
-      "suggested_image": "image-filename.png"
+      "suggested_image": "image-filename.png",
+      "layout": "SingleImage"
     }
   ]
 }
@@ -164,15 +186,26 @@ HTTP Request → Controller → JsonSlideParser → PowerPointGeneratorService �
 }
 ```
 
+#### Template-Based Generation Request Format
+```json
+{
+  "jsonContent": "{\"slides\": [...]}",
+  "templatePath": "Templates/MyTemplate.pptx",
+  "presentationName": "Generated_Presentation"
+}
+```
+
 ### File Management
 
 #### Directory Structure
 ```
 Application Root/
 ├── Images/                          # Console app images
+├── Templates/                       # PowerPoint template files (.pptx)
 ├── slides_content.json              # Default input file
 ├── WebAPI/
 │   ├── Images/                      # API uploaded images
+│   ├── Templates/                   # API uploaded templates
 │   ├── GeneratedPresentations/      # API generated files
 │   └── Program.cs
 └── Generated files (console output)
@@ -180,7 +213,8 @@ Application Root/
 
 #### File Validation
 - **Supported Image Formats**: JPG, JPEG, PNG, GIF, BMP, WEBP
-- **Maximum File Size**: 10MB per image
+- **Template Format**: PowerPoint (.pptx) files only
+- **Maximum File Size**: 10MB per image, 50MB per template
 - **Presentation Format**: Office Open XML (.pptx)
 
 ### Performance Specifications
@@ -209,11 +243,31 @@ public static (long width, long height) CalculateFitDimensions(
     long maxWidth, long maxHeight)
 ```
 
+#### Template-Based Generation Features
+
+##### Placeholder Replacement
+The system automatically replaces text placeholders in template slides:
+- `{title}` - Replaced with slide title from JSON content
+- `{description}` - Replaced with slide description from JSON content
+
+##### Smart Content Management
+- **Excess Slide Removal**: If JSON content has fewer slides than the template, extra slides are automatically removed
+- **Image Part Removal**: If a slide in JSON content has no image, image parts are removed from the corresponding template slide
+- **Layout Preservation**: Original template formatting, themes, and layout structure are maintained
+
+##### Template Structure Requirements
+Templates should follow these conventions:
+- Use `{title}` and `{description}` as text placeholders
+- Include image placeholders for slides that will contain images
+- Maintain consistent slide structure for best results
+
 #### Layout Types
 - **Single Large Image**: Maximum space utilization below text
-- **Image Grid**: 2x2 grid for multiple images
-- **Image with Caption**: Detailed image descriptions
-- **Two-Image Comparison**: Side-by-side layout
+- **Product Showcase**: Side-by-side layout with text on left, image on right
+- **Image Grid**: 2x2 grid for multiple images (future enhancement)
+- **Image with Caption**: Detailed image descriptions (future enhancement)
+- **Two-Image Comparison**: Side-by-side layout (future enhancement)
+- **Template-Based**: Custom layouts using PowerPoint template files with placeholder replacement
 
 ## Security Architecture
 
@@ -271,9 +325,17 @@ ENTRYPOINT ["dotnet", "PowerPointGenerator.WebAPI.dll"]
 {
   "PowerPointGenerator": {
     "MaxFileSize": 10485760,
+    "MaxTemplateSize": 52428800,
     "AllowedImageTypes": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"],
+    "AllowedTemplateTypes": [".pptx"],
     "DefaultTheme": "Office",
-    "ProcessingTimeout": 30000
+    "ProcessingTimeout": 30000,
+    "TemplateDirectory": "Templates",
+    "PlaceholderPatterns": {
+      "Title": "{title}",
+      "Description": "{description}",
+      "Image": "placeholder-image"
+    }
   }
 }
 ```
@@ -291,10 +353,12 @@ POWERPOINT_STORAGE_PATH=/app/storage
 - **Authentication**: JWT-based API security
 - **Multi-tenancy**: User isolation and resource management
 - **Advanced Layouts**: More slide templates and designs
+- **Enhanced Template Features**: Dynamic placeholder discovery, template validation, layout optimization
 - **Real-time Processing**: WebSocket-based progress updates
 - **Cloud Storage**: Azure Blob Storage integration
 - **Batch Processing**: Multiple presentation generation
 - **AI Integration**: Content suggestions and optimization
+- **Template Gallery**: Pre-built template library with categories
 
 ### Scalability Improvements
 - **Horizontal Scaling**: Load balancer support

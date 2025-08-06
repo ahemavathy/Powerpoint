@@ -13,6 +13,8 @@ GeneratedPresentations/*
 Images/*
 !Images/.gitkeep
 *.pptx
+# Allow template files
+!Templates/*.pptx
 *.zip
 
 # OS files
