@@ -86,6 +86,54 @@ Creates a PowerPoint presentation using an existing template with placeholder re
 }
 ```
 
+### Create Presentation from Template with Embedded Images (NEW!)
+**POST** `/api/presentation/create-from-template-with-embedded-images`
+
+Creates a PowerPoint presentation using a template with images embedded as base64 data in the JSON content. This endpoint is self-contained and doesn't require separate image files.
+
+**Request Body:**
+```json
+{
+  "jsonContent": "{\"slides\": [{\"title\": \"My Title\", \"description\": \"My description\", \"suggested_image\": \"Use Image 1: my-image.jpg\"}], \"images\": [{\"id\": \"my-image.jpg\", \"data\": \"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD...\"}]}",
+  "presentationName": "MyPresentation",
+  "presentationTitle": "My Presentation Title",
+  "author": "John Doe",
+  "templateName": "my_template.pptx"
+}
+```
+
+**Features:**
+- Self-contained: Images are embedded as base64 in the JSON
+- No need for separate image upload or file management
+- Supports multiple image formats (JPEG, PNG, GIF, etc.)
+- Automatically extracts MIME type from data URL format
+- Works with existing PowerPoint templates
+- Same response format as template-based endpoint
+
+**JSON Format (embedded in jsonContent):**
+```json
+{
+  "slides": [
+    {
+      "title": "Slide Title",
+      "description": "Slide content description",
+      "suggested_image": "Use Image 1: my-image.jpg",
+      "layout": "ImageFocused"
+    }
+  ],
+  "images": [
+    {
+      "id": "my-image.jpg",
+      "data": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD..."
+    },
+    {
+      "id": "another-image.png",
+      "data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB..."
+    }
+  ]
+}
+```
+
 ### Image Upload
 **POST** `/api/presentation/upload-image`
 

@@ -10,13 +10,15 @@ namespace PowerPointGenerator.Controllers
     public class PresentationController : ControllerBase
     {
         private readonly ILogger<PresentationController> _logger;
+        private readonly PowerPointGeneratorService _generatorService;
         private readonly string _outputDirectory;
         private readonly string _imageDirectory;
         private readonly string _templatesDirectory;
 
-        public PresentationController(ILogger<PresentationController> logger)
+        public PresentationController(ILogger<PresentationController> logger, PowerPointGeneratorService generatorService)
         {
             _logger = logger;
+            _generatorService = generatorService;
             _outputDirectory = Path.Combine(Environment.CurrentDirectory, "GeneratedPresentations");
             _imageDirectory = Path.Combine(Environment.CurrentDirectory, "Images");
             _templatesDirectory = Path.Combine(Environment.CurrentDirectory, "Templates");
@@ -80,8 +82,7 @@ namespace PowerPointGenerator.Controllers
                 );
 
                 // Create the presentation
-                using var generator = new PowerPointGeneratorService();
-                await generator.CreatePresentationAsync(presentationContent, outputPath);
+                await _generatorService.CreatePresentationAsync(presentationContent, outputPath);
 
                 // Return response with file information
                 var response = new PresentationResponse
@@ -165,8 +166,7 @@ namespace PowerPointGenerator.Controllers
                 );
 
                 // Create the presentation from template
-                using var generator = new PowerPointGeneratorService();
-                await generator.CreatePresentationFromTemplateAsync(presentationContent, templatePath, outputPath);
+                await _generatorService.CreatePresentationFromTemplateAsync(presentationContent, templatePath, outputPath);
 
                 // Return response with file information
                 var response = new PresentationResponse
@@ -197,12 +197,97 @@ namespace PowerPointGenerator.Controllers
         }
 
         /// <summary>
+        /// Creates a PowerPoint presentation from a template with embedded base64 images in JSON
+        /// </summary>
+        /// <param name="request">The presentation creation request with embedded images</param>
+        /// <returns>Information about the created presentation</returns>
+        [HttpPost("create-from-template-with-embedded-images")]
+        public async Task<ActionResult<PresentationResponse>> CreateFromTemplateWithEmbeddedImages([FromBody] CreatePresentationFromTemplateRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("Creating presentation from template with embedded images");
+
+                if (string.IsNullOrWhiteSpace(request.JsonContent))
+                {
+                    return BadRequest(new { error = "JSON content is required" });
+                }
+
+                // Determine template file to use
+                var templateName = string.IsNullOrWhiteSpace(request.TemplateName) 
+                    ? "test_template.pptx" 
+                    : request.TemplateName;
+
+                // Ensure template has .pptx extension
+                if (!templateName.EndsWith(".pptx", StringComparison.OrdinalIgnoreCase))
+                {
+                    templateName += ".pptx";
+                }
+
+                var templatePath = Path.Combine(_templatesDirectory, templateName);
+                
+                if (!System.IO.File.Exists(templatePath))
+                {
+                    return NotFound(new { error = $"Template file not found: {templateName}" });
+                }
+
+                // Parse JSON content with embedded images
+                var presentationContent = JsonSlideParser.ParseFromStringWithEmbeddedImages(
+                    request.JsonContent,
+                    request.PresentationTitle ?? "Generated Presentation",
+                    request.Author ?? "PowerPoint Generator"
+                );
+
+                // Generate presentation name
+                var finalPresentationName = !string.IsNullOrWhiteSpace(request.PresentationName)
+                    ? request.PresentationName
+                    : "Generated_Presentation_With_Embedded_Images";
+
+                var fileName = $"{finalPresentationName}_{DateTime.Now:yyyyMMdd_HHmmss}.pptx";
+                var outputPath = Path.Combine(_outputDirectory, fileName);
+
+                // Generate presentation from template
+                await _generatorService.CreatePresentationFromTemplateAsync(
+                    presentationContent,
+                    templatePath,
+                    outputPath
+                );
+
+                // Return response with file information
+                var response = new PresentationResponse
+                {
+                    Success = true,
+                    FileName = fileName,
+                    FilePath = outputPath,
+                    PresentationName = finalPresentationName,
+                    CreatedAt = DateTime.UtcNow,
+                    FileSize = new FileInfo(outputPath).Length,
+                    SlideCount = presentationContent.Slides.Count,
+                    DownloadUrl = $"/api/presentation/download/{fileName}"
+                };
+
+                _logger.LogInformation("Successfully created presentation from template with embedded images: {FileName}", fileName);
+                return Ok(response);
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "Invalid JSON format in request");
+                return BadRequest(new { error = "Invalid JSON format", details = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating presentation from template with embedded images");
+                return StatusCode(500, new { error = "Failed to create presentation from template with embedded images", details = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Downloads a generated presentation file
         /// </summary>
         /// <param name="fileName">The name of the file to download</param>
         /// <returns>The presentation file</returns>
         [HttpGet("download/{fileName}")]
-        public async Task<IActionResult> DownloadPresentation(string fileName)
+        public IActionResult DownloadPresentation(string fileName)
         {
             try
             {
@@ -213,10 +298,8 @@ namespace PowerPointGenerator.Controllers
                     return NotFound(new { error = "File not found" });
                 }
 
-                var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
-                var contentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-                
-                return File(fileBytes, contentType, fileName);
+                var contentType = "application/octet-stream";
+                return PhysicalFile(filePath, contentType, fileName);
             }
             catch (Exception ex)
             {

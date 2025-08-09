@@ -4,6 +4,7 @@ A comprehensive C# .NET solution for generating PowerPoint presentations from JS
 
 ## Features
 - **Template-Based Generation**: Use existing PowerPoint templates with placeholder replacement
+- **Embedded Images Support**: Self-contained JSON with base64 encoded images (no separate image files needed)
 - **Programmatic Generation**: Create presentations from scratch with custom layouts
 - Console application for direct use
 - REST API for web integration
