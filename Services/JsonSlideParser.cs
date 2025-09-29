@@ -67,6 +67,7 @@ namespace PowerPointGenerator.Services
                 var slideContent = new SlideContent
                 {
                     Title = jsonSlide.Title,
+                    Subtitle = jsonSlide.Subtitle,
                     Description = jsonSlide.Description,
                     LayoutType = ParseLayoutType(jsonSlide.Layout)
                 };
@@ -83,6 +84,30 @@ namespace PowerPointGenerator.Services
                             AltText = jsonSlide.Title,
                             Caption = jsonSlide.Description
                         });
+                    }
+                }
+
+                // Parse additional images
+                if (jsonSlide.Images.Any())
+                {
+                    foreach (var jsonImage in jsonSlide.Images)
+                    {
+                        var imagePath = Path.Combine(imageBasePath, jsonImage.FilePath);
+                        Console.WriteLine($"Checking image path: {imagePath}");
+                        Console.WriteLine($"Image exists: {File.Exists(imagePath)}");
+                        if (File.Exists(imagePath))
+                        {
+                            slideContent.Images.Add(new ImageContent
+                            {
+                                FilePath = imagePath,
+                                Title = jsonImage.Title,
+                                Subtitle = jsonImage.Subtitle
+                            });
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Image file not found: {imagePath}");
+                        }
                     }
                 }
 
